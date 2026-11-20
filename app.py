@@ -15,7 +15,7 @@ API_KEY = os.getenv("OPENROUTER_API_KEY", "")
 # to override. They are tried in order until one answers.
 MODELS = [m.strip() for m in os.getenv(
     "OPENROUTER_MODELS",
-    "openrouter/free,meta-llama/llama-3.3-70b-instruct:free",
+    "google/gemma-4-31b-it:free,google/gemma-4-26b-a4b-it:free,nvidia/nemotron-3-ultra-550b-a55b:free,openrouter/free",
 ).split(",") if m.strip()]
 TOP_K = int(os.getenv("TOP_K", "8"))
 PAGE_CHARS = int(os.getenv("PAGE_CHARS", "14000"))     # how much of a matched page to send
@@ -219,35 +219,14 @@ def health():
     return {"status": "ok", "docs": len(DOCS), "chunks": len(CHUNKS), "models": MODELS}
 
 
-PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1"><title>DarGlobal &amp; Wasalt Assistant</title>
-<style>
-:root{--bg:#f6f5f2;--card:#fff;--ink:#1d1d1b;--mut:#6b6a66;--acc:#8a6d3b;--line:#e4e1da}
-@media(prefers-color-scheme:dark){:root{--bg:#161614;--card:#211f1c;--ink:#f1efe9;--mut:#a09d95;--acc:#d3b377;--line:#34312c}}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,sans-serif;display:flex;flex-direction:column;height:100vh}
-header{padding:14px 16px;border-bottom:1px solid var(--line)}h1{margin:0;font-size:18px}small{color:var(--mut)}
-#log{flex:1;overflow:auto;padding:16px;display:flex;flex-direction:column;gap:12px;max-width:820px;width:100%;margin:0 auto}
-.m{padding:10px 14px;border-radius:12px;max-width:85%;white-space:pre-wrap;background:var(--card);border:1px solid var(--line)}
-.u{align-self:flex-end;background:var(--acc);color:#fff;border:none}.src{font-size:13px;color:var(--mut);margin-top:6px}.src a{color:var(--acc)}
-form{display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--line);max-width:820px;width:100%;margin:0 auto}
-input{flex:1;padding:12px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink);font:inherit}
-button{padding:0 18px;border:none;border-radius:10px;background:var(--acc);color:#fff;font:inherit;cursor:pointer}
-</style></head><body>
-<header><h1>DarGlobal &amp; Wasalt Assistant</h1><small>Answers come from publicly scraped website content.</small></header>
-<div id="log"><div class="m">Hi! Ask me about DarGlobal projects (e.g. Trump International Hotel &amp; Tower Dubai) or the Wasalt platform.</div></div>
-<form id="f"><input id="q" placeholder="Ask a question..." autocomplete="off" required><button>Send</button></form>
-<script>
-const log=document.getElementById('log'),f=document.getElementById('f'),q=document.getElementById('q');let hist=[];
-function add(t,c){const d=document.createElement('div');d.className='m '+c;d.textContent=t;log.appendChild(d);log.scrollTop=1e9;return d}
-f.onsubmit=async e=>{e.preventDefault();const t=q.value.trim();if(!t)return;q.value='';add(t,'u');const w=add('Thinking...','');
-try{const r=await fetch('/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:t,history:hist})});
-const j=await r.json();if(!r.ok)throw new Error(j.detail||'Error');w.textContent=j.answer;
-if(j.sources&&j.sources.length){const s=document.createElement('div');s.className='src';s.append('Sources: ');
-j.sources.slice(0,3).forEach((x,i)=>{const a=document.createElement('a');a.href=x.url;a.target='_blank';a.rel='noopener';a.textContent=x.source+': '+(x.title||x.url).slice(0,40);s.append(i?' | ':'',a)});w.appendChild(s)}
-hist.push({role:'user',content:t},{role:'assistant',content:j.answer})}catch(err){w.textContent='Sorry, something went wrong: '+err.message}};
-</script></body></html>"""
+INDEX_PATH = os.path.join(BASE, "index.html")
+FALLBACK_PAGE = "<h1>DarGlobal &amp; Wasalt Assistant</h1><p>index.html is missing next to app.py.</p>"
 
 
 @app.get("/", response_class=HTMLResponse)
 def index():
-    return PAGE
+    # Read on each request so edits to index.html show up without restarting.
+    try:
+        return open(INDEX_PATH, encoding="utf-8").read()
+    except OSError:
+        return FALLBACK_PAGE
